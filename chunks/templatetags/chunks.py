@@ -1,6 +1,7 @@
 from django import template
 from django.db import models
 from django.core.cache import cache
+from django.contrib.sites.models import Site
 
 register = template.Library()
 
@@ -24,20 +25,23 @@ def do_get_chunk(parser, token):
     return ChunkNode(key[1:-1], cache_time)
     
 class ChunkNode(template.Node):
-    def __init__(self, key, cache_time=0):
+    def __init__(self, key, language, cache_time=0):
        self.key = key
        self.cache_time = cache_time
+       self.lang_code = template.Variable('LANGUAGE_CODE')
     
     def render(self, context):
         try:
-            cache_key = CACHE_PREFIX + self.key
+            lang = self.lang_code.resolve(context)
+            site = Site.objects.get_current().id
+            cache_key = CACHE_PREFIX + self.key + lang + str(site)
             c = cache.get(cache_key)
             if c is None:
-                c = Chunk.objects.get(key=self.key)
+                c = Chunk.objects.get(key=self.key, lang_code=lang, site=site)
                 cache.set(cache_key, c, int(self.cache_time))
             content = c.content
         except Chunk.DoesNotExist:
             content = ''
         return content
-        
+
 register.tag('chunk', do_get_chunk)
