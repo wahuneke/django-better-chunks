@@ -1,3 +1,5 @@
-django-chunks was originally developed by Clint Ecker
+django-better-chunks is originally a fork off django-chunks which was was developed by Clint Ecker.
 
 Caching code suggested by Kevin Fricovsky (howiworkdaily.com)
+
+Internationalization (i18n) and sites-framework support by Håkan Waara (hwaara@gmail.com) and Sam Cranford (sam.cranford@gmail.com)
