@@ -1,5 +1,6 @@
 from django import template
 from django.db import models
+from chunks.conf import settings
 
 register = template.Library()
 
@@ -13,7 +14,7 @@ def do_get_chunk(parser, token):
     if cnt == 2:
         # Called with just a chunk key
         tag_name, key = tokens
-        cache_time = 0
+        cache_time = settings.CHUNKS_CACHE_TIMEOUT
         output_variable = None
     elif cnt == 3:
         # Called with chunk key and cache time
@@ -22,7 +23,7 @@ def do_get_chunk(parser, token):
     elif cnt == 4 and tokens[-2] == 'as':
         # Called with variable assignment but no cache time
         tag_name, key, _as, output_variable = tokens
-        cache_time = 0
+        cache_time = settings.CHUNKS_CACHE_TIMEOUT
     elif cnt == 5 and tokens[-2] == 'as':
         # Called with variable assignment and cache time
         tag_name, key, cache_time, _as, output_variable = tokens
@@ -37,7 +38,7 @@ def do_get_chunk(parser, token):
     
 
 class ChunkNode(template.Node):
-    def __init__(self, key, cache_time=0, output_variable=None):
+    def __init__(self, key, cache_time=settings.CHUNKS_CACHE_TIMEOUT, output_variable=None):
         self.key = key
         self.output_variable = output_variable
         self.cache_time = int(cache_time)
