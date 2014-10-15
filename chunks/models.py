@@ -65,5 +65,19 @@ class Chunk(models.Model):
                 cache.set(cache_key, content, cache_time)
         return content
 
+    def clone_for_all_sites(self):
+        """
+        use the current chunk key and check for other chunks with same key for other sites. If there is any site
+        that doesnt have this key then create a new chunk for that site using this key.
+
+        This makes it easy to populate the database with all the chunks needed for each site
+        """
+        #TODO: I'm sure there's a faster way to do this
+        # Sites that have this chunk key for current lang code
+        have_key = Chunk.objects.filter(key=self.key, lang_code=self.lang_code).values_list('site_id', flat=True)
+        other_sites = Site.objects.exclude(id__in=have_key)
+        for site in other_sites:
+            Chunk.objects.create(key=self.key, lang_code=self.lang_code, site=site, content=self.content)
+
     def __unicode__(self):
         return u"%s" % (self.key,)
