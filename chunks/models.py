@@ -27,15 +27,21 @@ class Chunk(models.Model):
         unique_together = (('key', 'lang_code', 'site'),)
 
     @classmethod
-    def get_chunk(cls, name, context=None, cache_time=0):
+    def get_chunk(cls, name, lang=None, context=None, cache_time=None):
         """
         Get the named string chunk
         :param name: name of chunk to retrieve
+        :param lang: specify a language code here to manually set language, otherwise we'll try to read from context
         :param context: request context (if available) so we can get language code
         :param cache_time: number of seconds this value can be cached
         """
 
-        if context is None:
+        if cache_time is None:
+            cache_time = settings.CHUNKS_CACHE_TIMEOUT
+
+        if not lang is None:
+            pass
+        elif context is None:
             lang = settings.LANGUAGE_CODE
         else:
             try:
