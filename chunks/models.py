@@ -1,9 +1,47 @@
 from django.db import models
 from django.contrib.sites.models import Site
-from django.conf import settings
+from chunks.conf import settings
 from django.utils.translation import ugettext_lazy as _
 from django import template
 from django.core.cache import cache
+
+
+# We export the settings symbol because it's hard/impossible to get that symbol from templatetags.chunks because
+# that module has the same name as the chunks package and thus it is impossible to import chunks.conf from there ...
+# I guess
+__all__ = ['Chunk', 'settings', ]
+
+# The variable name used in contexts that carry the language code
+LANG_CODE_VAR = template.Variable('LANGUAGE_CODE')
+
+
+def deduce_site_lang(request=None, context=None):
+    """
+    If there is some way to get current site and or current language from the provided request and context, then return
+    that as a tuple
+
+    :param request: a request object
+    :param context: a context object
+    :return: site, lang_code
+    """
+    lang = site = None
+
+    if not request is None and hasattr(request, "LANGUAGE_CODE"):
+        lang = request.LANGUAGE_CODE
+    elif not context is None:
+        try:
+            lang = LANG_CODE_VAR.resolve(context)
+        except template.VariableDoesNotExist:
+            # no LANGUAGE_CODE variable found in context, just return ''
+            return ''
+    else:
+        # We have no way to get language, just assume default language
+        lang = settings.LANGUAGE_CODE
+
+    # Just default to using the "current" site
+    site = Site.objects.get_current()
+
+    return site, lang
 
 
 class Chunk(models.Model):
@@ -14,7 +52,6 @@ class Chunk(models.Model):
     tag
     """
     CACHE_PREFIX = "chunk_"
-    LANG_CODE_VAR = template.Variable('LANGUAGE_CODE')
 
     key = models.CharField(help_text="A unique name for this chunk of content", blank=False, max_length=255)
     content = models.TextField(blank=True)
@@ -27,31 +64,26 @@ class Chunk(models.Model):
         unique_together = (('key', 'lang_code', 'site'),)
 
     @classmethod
-    def get_chunk(cls, name, lang=None, context=None, cache_time=None):
+    def get_chunk(cls, name, lang=None, request=None, context=None, cache_time=None, site=None):
         """
         Get the named string chunk
         :param name: name of chunk to retrieve
         :param lang: specify a language code here to manually set language, otherwise we'll try to read from context
+        :param request: provide the HTTP request object if available
         :param context: request context (if available) so we can get language code
         :param cache_time: number of seconds this value can be cached
+        :param site: if site is provided then we use that, otherwise, read current site
         """
 
         if cache_time is None:
             cache_time = settings.CHUNKS_CACHE_TIMEOUT
 
-        if not lang is None:
-            pass
-        elif context is None:
-            lang = settings.LANGUAGE_CODE
-        else:
-            try:
-                lang = cls.LANG_CODE_VAR.resolve(context)
-            except template.VariableDoesNotExist:
-                # no LANGUAGE_CODE variable found in context, just return ''
-                return ''
+        site_suggested, lang_suggested = deduce_site_lang(request=request, context=context)
 
-        site = Site.objects.get_current().id  # Django caches get_current()
-        cache_key = cls.CACHE_PREFIX + name + lang + str(site)
+        lang = lang or lang_suggested
+        site = site or site_suggested
+
+        cache_key = cls.CACHE_PREFIX + name + lang + str(site.id)
         content = cache.get(cache_key)
         if content is None:
             try:

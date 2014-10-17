@@ -1,10 +1,14 @@
 from django import template
 from django.db import models
-from chunks.conf import settings
+from django.db.models.loading import get_app
 
 register = template.Library()
 
 Chunk = models.get_model('chunks', 'Chunk')
+# This silliness is necessary because the current file has the same name as the package that we need
+# I just want to import chunks.conf.settings but I think this is the only way to do it
+chunks_models = get_app('chunks')
+settings = chunks_models.settings
 
 
 def do_get_chunk(parser, token):
@@ -44,7 +48,7 @@ class ChunkNode(template.Node):
         self.cache_time = int(cache_time)
 
     def render(self, context):
-        content = Chunk.get_chunk(self.key, context, self.cache_time)
+        content = Chunk.get_chunk(self.key, context=context, cache_time=self.cache_time)
         if self.output_variable is None:
             return content
         else:
