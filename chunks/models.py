@@ -13,6 +13,8 @@ __all__ = ['Chunk', 'settings', ]
 
 # The variable name used in contexts that carry the language code
 LANG_CODE_VAR = template.Variable('LANGUAGE_CODE')
+# The variable name used in contexts that carry the site ID
+SITE_ID_VAR = template.Variable('SITE_ID')
 
 
 def deduce_site_lang(request=None, context=None):
@@ -26,20 +28,36 @@ def deduce_site_lang(request=None, context=None):
     """
     lang = site = None
 
+    # Get language
     if not request is None and hasattr(request, "LANGUAGE_CODE"):
+        # A language code in request gets first priority
         lang = request.LANGUAGE_CODE
     elif not context is None:
+        # Language code in the context gets second priority
         try:
             lang = LANG_CODE_VAR.resolve(context)
         except template.VariableDoesNotExist:
             # no LANGUAGE_CODE variable found in context, just return ''
-            return ''
+            lang = settings.LANGUAGE_CODE
     else:
         # We have no way to get language, just assume default language
         lang = settings.LANGUAGE_CODE
 
-    # Just default to using the "current" site
-    site = Site.objects.get_current()
+    # If there is a setting in the context then that overrides the "current site"
+    if not context is None:
+        try:
+            site_id = SITE_ID_VAR.resolve(context)
+            try:
+                site = Site.objects.get(id=site_id)
+            except Site.DoesNotExist:
+                pass
+        except template.VariableDoesNotExist:
+            # no SITE_ID variable found in context, just go default
+            pass
+
+    if site is None:
+        # Just default to using the "current" site
+        site = Site.objects.get_current()
 
     return site, lang
 
